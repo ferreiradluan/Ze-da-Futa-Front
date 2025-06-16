@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react"
 import DashboardLayout from "@/components/dashboard-layout"
 import AddressManager from "@/components/address-manager"
+import ProtectedRoute from "@/components/protected-route"
+import { useAuth } from "@/hooks/use-auth"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -34,13 +36,12 @@ interface CartItem extends Product {
 
 const categories = [
   { id: "frutas", name: "Frutas", icon: "🍎" },
-  { id: "verduras", name: "Verduras", icon: "🥬" },
-  { id: "legumes", name: "Legumes", icon: "🥕" },
+  { id: "verduras", name: "Verduras", icon: "🥬" },  { id: "legumes", name: "Legumes", icon: "🥕" },
   { id: "organicos", name: "Orgânicos", icon: "🌱" },
   { id: "promocoes", name: "Promoções", icon: "🏷️" },
 ]
 
-export default function CompradorDashboard() {
+function CompradorDashboard() {
   const [cart, setCart] = useState<CartItem[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [products, setProducts] = useState<Product[]>([])
@@ -674,8 +675,7 @@ export default function CompradorDashboard() {
                   onClick={handleCheckout}
                   className="flex-1 bg-[#FE9A04] hover:bg-[#E8890B]"
                   disabled={!selectedAddress}
-                >
-                  <CreditCard className="w-4 h-4 mr-2" />
+                >                  <CreditCard className="w-4 h-4 mr-2" />
                   Finalizar Pedido
                 </Button>
               </div>
@@ -684,5 +684,13 @@ export default function CompradorDashboard() {
         </Dialog>
       </div>
     </DashboardLayout>
+  )
+}
+
+export default function CompradorDashboardPage() {
+  return (
+    <ProtectedRoute requiredUserType="comprador">
+      <CompradorDashboard />
+    </ProtectedRoute>
   )
 }

@@ -1,4 +1,6 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
+import { authService } from './auth-service'
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://meu-ze-da-fruta-backend-8c4976f28553.herokuapp.com"
 
 interface ApiResponse<T> {
   data?: T
@@ -7,7 +9,7 @@ interface ApiResponse<T> {
 
 class ApiService {
   private getAuthHeaders() {
-    const token = localStorage.getItem("access_token")
+    const token = authService.getToken()
     return {
       "Content-Type": "application/json",
       ...(token && { Authorization: `Bearer ${token}` }),
@@ -19,6 +21,11 @@ class ApiService {
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         headers: this.getAuthHeaders(),
       })
+
+      if (response.status === 401) {
+        authService.logout()
+        throw new Error('Sessão expirada')
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
@@ -39,6 +46,11 @@ class ApiService {
         body: JSON.stringify(body),
       })
 
+      if (response.status === 401) {
+        authService.logout()
+        throw new Error('Sessão expirada')
+      }
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
@@ -58,6 +70,11 @@ class ApiService {
         body: JSON.stringify(body),
       })
 
+      if (response.status === 401) {
+        authService.logout()
+        throw new Error('Sessão expirada')
+      }
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
@@ -75,6 +92,11 @@ class ApiService {
         method: "DELETE",
         headers: this.getAuthHeaders(),
       })
+
+      if (response.status === 401) {
+        authService.logout()
+        throw new Error('Sessão expirada')
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
