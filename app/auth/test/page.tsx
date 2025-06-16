@@ -11,8 +11,9 @@ export default function AuthTestPage() {
   const [token, setToken] = useState('')
   const [userType, setUserType] = useState('comprador')
   const [result, setResult] = useState<any>(null)
-
   const simulateCallback = () => {
+    if (typeof window === 'undefined') return
+    
     try {
       // Simular URL de callback
       const testUrl = `${window.location.origin}/auth/test?token=${token}&type=${userType}`
@@ -27,11 +28,12 @@ export default function AuthTestPage() {
       setResult({ success: false, error: error instanceof Error ? error.message : 'Erro desconhecido' })
     }
   }
-
   const clearAuth = () => {
     authService.logout()
     setResult(null)
-    window.location.reload()
+    if (typeof window !== 'undefined') {
+      window.location.reload()
+    }
   }
 
   const checkAuth = () => {

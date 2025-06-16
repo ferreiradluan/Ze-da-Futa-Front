@@ -8,9 +8,10 @@ import { authService } from '@/lib/auth-service'
 export default function DebugCallbackPage() {
   const [tokenData, setTokenData] = useState<any>(null)
   const [currentUrl, setCurrentUrl] = useState('')
-
   useEffect(() => {
-    setCurrentUrl(window.location.href)
+    if (typeof window !== 'undefined') {
+      setCurrentUrl(window.location.href)
+    }
     
     // Testar com o token real do seu backend
     const realToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxY2U1OTY0My01ZTEzLTQyZmQtYTU1OS1hY2E0MTBhNWY3NWEiLCJlbWFpbCI6ImhlbnJpbHVhbjlAZ21haWwuY29tIiwibm9tZSI6Ikx1YW4gSGVucmlxdWUiLCJ0eXBlIjoidXN1YXJpbyIsImlhdCI6MTc1MDA4ODQ4NCwiZXhwIjoxNzUwMTc0ODg0fQ.fjdg4bQ3ANbZPhcqbQhKkmRp9nxPEEZWLD0LT_0PMu4"
@@ -28,12 +29,13 @@ export default function DebugCallbackPage() {
       setTokenData({ error: error instanceof Error ? error.message : 'Erro desconhecido' })
     }
   }, [])
-
   const testCallback = () => {
-    // Simular a URL do seu backend
-    const testUrl = `${window.location.origin}/auth/google/callback?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxY2U1OTY0My01ZTEzLTQyZmQtYTU1OS1hY2E0MTBhNWY3NWEiLCJlbWFpbCI6ImhlbnJpbHVhbjlAZ21haWwuY29tIiwibm9tZSI6Ikx1YW4gSGVucmlxdWUiLCJ0eXBlIjoidXN1YXJpbyIsImlhdCI6MTc1MDA4ODQ4NCwiZXhwIjoxNzUwMTc0ODg0fQ.fjdg4bQ3ANbZPhcqbQhKkmRp9nxPEEZWLD0LT_0PMu4`
-    
-    window.location.href = testUrl
+    if (typeof window !== 'undefined') {
+      // Simular a URL do seu backend
+      const testUrl = `${window.location.origin}/auth/google/callback?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxY2U1OTY0My01ZTEzLTQyZmQtYTU1OS1hY2E0MTBhNWY3NWEiLCJlbWFpbCI6ImhlbnJpbHVhbjlAZ21haWwuY29tIiwibm9tZSI6Ikx1YW4gSGVucmlxdWUiLCJ0eXBlIjoidXN1YXJpbyIsImlhdCI6MTc1MDA4ODQ4NCwiZXhwIjoxNzUwMTc0ODg0fQ.fjdg4bQ3ANbZPhcqbQhKkmRp9nxPEEZWLD0LT_0PMu4`
+      
+      window.location.href = testUrl
+    }
   }
 
   return (

@@ -53,24 +53,15 @@ function CompradorDashboard() {
   const [selectedCategory, setSelectedCategory] = useState<string>("todos")
   const [sortBy, setSortBy] = useState<string>("relevancia")
   const [showAddressManager, setShowAddressManager] = useState(false)
-  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
+    loadProducts()
+    loadOrders()
   }, [])
 
-  useEffect(() => {
-    if (mounted) {
-      loadProducts()
-      loadOrders()
-    }
-  }, [mounted])
   const loadProducts = async () => {
-    if (typeof window === 'undefined' || !mounted) return
-    
     setIsLoading(true)
-    try {
-      // Simulação com produtos de exemplo para demonstração
+    // Simulação com produtos de exemplo para demonstração
     const mockProducts: Product[] = [
       {
         id: 1,
@@ -202,7 +193,8 @@ function CompradorDashboard() {
         image: "/placeholder.svg?height=300&width=400",
         rating: 4.7,
         vendor: "Orgânicos da Terra",
-        category: "organicos",        stock: 18,
+        category: "organicos",
+        stock: 18,
       },
     ]
 
@@ -213,24 +205,13 @@ function CompradorDashboard() {
       setProducts(mockProducts)
       localStorage.setItem("marketplace_products", JSON.stringify(mockProducts))
     }
-    } catch (error) {
-      console.error('Erro ao carregar produtos:', error)
-      setProducts([])
-    } finally {
-      setIsLoading(false)
-    }
+    setIsLoading(false)
   }
+
   const loadOrders = async () => {
-    if (typeof window === 'undefined' || !mounted) return
-    
-    try {
-      const savedOrders = localStorage.getItem("user_orders")
-      if (savedOrders) {
-        setOrders(JSON.parse(savedOrders))
-      }
-    } catch (error) {
-      console.error('Erro ao carregar pedidos:', error)
-      setOrders([])
+    const savedOrders = localStorage.getItem("user_orders")
+    if (savedOrders) {
+      setOrders(JSON.parse(savedOrders))
     }
   }
 
@@ -311,21 +292,10 @@ function CompradorDashboard() {
         return b.rating - a.rating
       case "nome":
         return a.name.localeCompare(b.name)
-      default:        return 0
+      default:
+        return 0
     }
   })
-
-  // Não renderizar até estar montado no cliente
-  if (!mounted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-orange-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg">🔄 Carregando...</p>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <DashboardLayout title="Zé da Fruta" userType="comprador">

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
 
@@ -17,9 +17,14 @@ export default function ProtectedRoute({
 }: ProtectedRouteProps) {
   const { isAuthenticated, loading, userType } = useAuth()
   const router = useRouter()
+  const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
-    if (!loading) {
+    setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!loading && isMounted) {
       if (!isAuthenticated) {
         router.push(redirectTo)
         return
@@ -38,13 +43,13 @@ export default function ProtectedRoute({
         if (correctRoute) {
           router.push(correctRoute)
         } else {
-          router.push('/')
-        }
+          router.push('/')        }
       }
     }
-  }, [isAuthenticated, loading, userType, requiredUserType, router, redirectTo])
+  }, [isAuthenticated, loading, userType, requiredUserType, router, redirectTo, isMounted])
 
-  if (loading) {
+  // Enquanto não carregou ou não está montado, mostra loading
+  if (!isMounted || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-orange-100">
         <div className="text-center">
@@ -55,10 +60,12 @@ export default function ProtectedRoute({
     )
   }
 
+  // Se não está autenticado, não mostra nada (já está redirecionando)
   if (!isAuthenticated) {
     return null // O redirecionamento já foi feito no useEffect
   }
 
+  // Se tem tipo específico exigido e não confere, não mostra nada (já está redirecionando)
   if (requiredUserType && userType !== requiredUserType) {
     return null // O redirecionamento já foi feito no useEffect
   }

@@ -55,8 +55,9 @@ export default function DeliveryDetails({
         return status
     }
   }
-
   const openMaps = () => {
+    if (typeof window === 'undefined') return
+    
     const address = `${delivery.endereco.rua}, ${delivery.endereco.numero}, ${delivery.endereco.cidade}, ${delivery.endereco.estado}`
     const encodedAddress = encodeURIComponent(address)
     window.open(`https://www.google.com/maps/search/?api=1&query=${encodedAddress}`, "_blank")

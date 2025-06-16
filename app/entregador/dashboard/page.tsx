@@ -555,12 +555,13 @@ export default function EntregadorDashboard() {
                         <div className="flex flex-col gap-2">
                           <Button
                             size="sm"
-                            variant="outline"
-                            onClick={(e) => {
+                            variant="outline"                            onClick={(e) => {
                               e.stopPropagation()
-                              const address = `${delivery.endereco.rua}, ${delivery.endereco.numero}, ${delivery.endereco.cidade}, ${delivery.endereco.estado}`
-                              const encodedAddress = encodeURIComponent(address)
-                              window.open(`https://www.google.com/maps/search/?api=1&query=${encodedAddress}`, "_blank")
+                              if (typeof window !== 'undefined') {
+                                const address = `${delivery.endereco.rua}, ${delivery.endereco.numero}, ${delivery.endereco.cidade}, ${delivery.endereco.estado}`
+                                const encodedAddress = encodeURIComponent(address)
+                                window.open(`https://www.google.com/maps/search/?api=1&query=${encodedAddress}`, "_blank")
+                              }
                             }}
                           >
                             <Navigation className="w-4 h-4 mr-1" />

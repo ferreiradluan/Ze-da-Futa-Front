@@ -9,7 +9,6 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Zé da Fruta - Marketplace de Hortifruti",
   description: "O maior marketplace de frutas e verduras frescas da região",
-    generator: 'v0.dev'
 }
 
 export default function RootLayout({
