@@ -112,16 +112,21 @@ function CompradorDashboard() {
   useEffect(() => {
     setMounted(true)
   }, [])
-
   useEffect(() => {
     if (mounted && isAuthenticated) {
       console.log('🚀 Iniciando carregamento dos dados...')
       console.log('👤 Usuário autenticado:', user)
       console.log('🔑 Token JWT:', authService.getToken() ? 'Presente' : 'Ausente')
+      console.log('🌐 URL do backend:', API_BASE_URL)
+      
+      // Testar conexão com o backend
+      console.log('🧪 Testando conectividade...')
       
       loadEstablishments()
       loadCart()
       loadCategories()
+    } else {
+      console.log('⏳ Aguardando autenticação...', { mounted, isAuthenticated })
     }
   }, [mounted, isAuthenticated])
 
@@ -135,30 +140,39 @@ function CompradorDashboard() {
       ...(token && { Authorization: `Bearer ${token}` }),
     }
   }
-
   // Carregar estabelecimentos usando endpoint exato da documentação
   const loadEstablishments = async () => {
     setIsLoadingEstablishments(true)
     try {
       console.log('🏪 Carregando estabelecimentos do endpoint: /sales/public/establishments')
+      console.log('🔗 URL completa:', `${API_BASE_URL}/sales/public/establishments`)
+      
+      const headers = getAuthHeaders()
+      console.log('📋 Headers da requisição:', headers)
       
       const response = await fetch(`${API_BASE_URL}/sales/public/establishments`, {
         method: 'GET',
-        headers: getAuthHeaders(),
+        headers,
+        mode: 'cors', // Explicitar CORS
       })
 
       console.log('📡 Resposta do servidor:', {
         status: response.status,
         statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries())
+        headers: Object.fromEntries(response.headers.entries()),
+        url: response.url
       })
 
       if (response.ok) {
-        const data = await response.json()
-        console.log('✅ Dados recebidos (estabelecimentos):', data)
-          // Backend retorna { value: [...], Count: number }
-        const establishments = data.value || []
-        console.log('🏪 Estabelecimentos processados:', establishments.length)
+        const rawText = await response.text()
+        console.log('📄 Resposta bruta:', rawText.substring(0, 500) + '...')
+        
+        const data = JSON.parse(rawText)
+        console.log('✅ Dados JSON parseados:', data)
+        
+        // Backend retorna { value: [...], Count: number }
+        const establishments = data.value || data || []
+        console.log('🏪 Estabelecimentos processados:', establishments.length, establishments)
         
         setEstablishments(establishments)
       } else {
@@ -171,6 +185,7 @@ function CompradorDashboard() {
       }
     } catch (error) {
       console.error('❌ Erro de rede ao carregar estabelecimentos:', error)
+      console.error('❌ Stack trace:', error instanceof Error ? error.stack : 'N/A')
     } finally {
       setIsLoadingEstablishments(false)
     }
@@ -455,10 +470,16 @@ function CompradorDashboard() {
                   {currentView === 'establishment-products' && selectedEstablishment?.nome}
                   {currentView === 'cart' && 'Meu Carrinho'}
                   {currentView === 'orders' && 'Meus Pedidos'}
-                </h1>
-                <p className="text-sm text-gray-600">
+                </h1>                <p className="text-sm text-gray-600">
                   Olá, {user?.name || 'usuário'}! Bem-vindo ao marketplace.
                 </p>
+                
+                {/* Debug info */}
+                <div className="text-xs text-gray-500 mt-1 flex gap-4">
+                  <span>Token: {authService.getToken() ? '✅' : '❌'}</span>
+                  <span>Estabelecimentos: {establishments.length}</span>
+                  <span>Loading: {isLoadingEstablishments ? '⏳' : '✅'}</span>
+                </div>
               </div>
             </div>
 
