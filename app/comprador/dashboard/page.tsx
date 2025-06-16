@@ -142,91 +142,117 @@ function CompradorDashboard() {
   }  // Carregar estabelecimentos usando endpoint exato da documentação
   const loadEstablishments = async () => {
     setIsLoadingEstablishments(true)
+    console.log('🚀 Iniciando loadEstablishments...')
+    
     try {
-      console.log('🏪 Carregando estabelecimentos do endpoint: /sales/public/establishments')
-      console.log('🔗 URL completa:', `${API_BASE_URL}/sales/public/establishments`)
-        // Para endpoints públicos, não precisamos necessariamente do token
+      const url = `${API_BASE_URL}/sales/public/establishments`
+      console.log('🔗 Fazendo requisição para:', url)
+      
+      // Headers básicos para endpoint público
       const headers: Record<string, string> = {
-        "Content-Type": "application/json",
         "Accept": "application/json",
+        "Content-Type": "application/json"
       }
       
-      // Adicionar token se disponível, mas não obrigatório para endpoints públicos
+      // Adicionar token se disponível (mas não obrigatório para público)
       const token = authService.getToken()
       if (token) {
         headers["Authorization"] = `Bearer ${token}`
-        console.log('🔑 Token adicionado aos headers')
-      } else {
-        console.log('ℹ️ Sem token - usando endpoint público')
+        console.log('🔑 Token JWT incluído')
       }
       
-      console.log('📋 Headers da requisição:', headers)
+      console.log('📋 Headers enviados:', headers)
       
-      const response = await fetch(`${API_BASE_URL}/sales/public/establishments`, {
+      const response = await fetch(url, {
         method: 'GET',
         headers,
         mode: 'cors',
+        cache: 'no-cache'
       })
 
-      console.log('📡 Resposta do servidor:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        url: response.url
-      })
+      console.log('📡 Status da resposta:', response.status, response.statusText)
+      console.log('📡 Headers da resposta:', Object.fromEntries(response.headers.entries()))
 
-      if (response.ok) {
-        const data = await response.json()
-        console.log('✅ Dados JSON recebidos:', data)
-        console.log('🔍 Estrutura da resposta:', {
-          hasValue: 'value' in data,
-          hasCount: 'Count' in data,
-          isArray: Array.isArray(data),
-          keys: Object.keys(data)
-        })
-          // Backend retorna array direto conforme teste PowerShell
-        let establishments = []
-        
-        if (Array.isArray(data)) {
-          // Formato atual: array direto de estabelecimentos
-          establishments = data
-          console.log('✅ Usando array direto - encontrados:', establishments.length, 'estabelecimentos')
-        } else if (data.value && Array.isArray(data.value)) {
-          // Formato alternativo: { value: [...], Count: number }
-          establishments = data.value
-          console.log('✅ Usando data.value - encontrados:', establishments.length, 'estabelecimentos')
-        } else {
-          console.warn('⚠️ Estrutura de resposta inesperada:', data)
-          establishments = []
-        }
-        
-        console.log('🏪 Estabelecimentos a serem definidos:', establishments)
-        setEstablishments(establishments)
-        
-        if (establishments.length > 0) {
-          console.log('✅ Primeiro estabelecimento:', establishments[0])
-        }
-      } else {
+      if (!response.ok) {
         const errorText = await response.text()
-        console.error('❌ Erro na resposta HTTP:', {
+        console.error('❌ Erro HTTP:', {
           status: response.status,
           statusText: response.statusText,
-          body: errorText
+          body: errorText,
+          url: response.url
         })
-        
-        // Se falhou, tenta com dados mock temporariamente
-        console.log('🔄 Tentando com dados de exemplo...')
-        setEstablishments([])
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
-    } catch (error) {      console.error('❌ Erro de rede ao carregar estabelecimentos:', error)
-      console.error('❌ Detalhes do erro:', {
-        name: error instanceof Error ? error.name : 'Unknown',
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : 'N/A'
-      })
+
+      // Tentar fazer parse do JSON
+      const rawText = await response.text()
+      console.log('📄 Resposta bruta do servidor:', rawText.substring(0, 500) + '...')
+
+      let data
+      try {
+        data = JSON.parse(rawText)
+      } catch (parseError) {
+        console.error('❌ Erro ao fazer parse do JSON:', parseError)
+        console.error('� Texto recebido:', rawText)
+        throw new Error('Resposta não é um JSON válido')
+      }
+
+      console.log('✅ Dados JSON parseados:', data)
+      console.log('🔍 Tipo da resposta:', typeof data)
+      console.log('🔍 É array?', Array.isArray(data))
+      console.log('🔍 Chaves do objeto:', Object.keys(data))
+
+      // Processar baseado na estrutura real do backend
+      let establishments: Establishment[] = []
       
-      // Em caso de erro, definir array vazio
-      setEstablishments([])
+      if (Array.isArray(data)) {
+        // Caso seja array direto
+        establishments = data
+        console.log('✅ Processando como array direto')
+      } else if (data && typeof data === 'object') {
+        // Caso seja objeto com propriedades
+        if (data.value && Array.isArray(data.value)) {
+          establishments = data.value
+          console.log('✅ Processando como data.value')
+        } else if (data.estabelecimentos && Array.isArray(data.estabelecimentos)) {
+          establishments = data.estabelecimentos
+          console.log('✅ Processando como data.estabelecimentos')
+        } else {
+          console.warn('⚠️ Estrutura desconhecida:', data)
+          establishments = []
+        }
+      }
+      
+      console.log('🏪 Total de estabelecimentos encontrados:', establishments.length)
+      
+      if (establishments.length > 0) {
+        console.log('🏪 Primeiro estabelecimento:', establishments[0])
+        console.log('🏪 Estrutura do primeiro:', Object.keys(establishments[0]))
+      }
+      
+      setEstablishments(establishments)
+      console.log('✅ Estado atualizado com', establishments.length, 'estabelecimentos')
+      
+    } catch (error) {
+      console.error('❌ Erro completo:', error)
+      console.error('❌ Stack trace:', error instanceof Error ? error.stack : 'N/A')
+      
+      // Tentar dados de fallback para debug
+      console.log('🔄 Usando dados de fallback para debug...')
+      const fallbackEstablishments: Establishment[] = [
+        {
+          id: "test-1",
+          nome: "Estabelecimento Teste",
+          endereco: "Rua Teste, 123",
+          telefone: "(11) 1234-5678",
+          descricao: "Estabelecimento de teste para debug",
+          imagemUrl: null
+        }
+      ]
+      
+      setEstablishments(fallbackEstablishments)
+      console.log('✅ Dados de fallback definidos')
+      
     } finally {
       setIsLoadingEstablishments(false)
       console.log('🏁 loadEstablishments finalizado')
@@ -514,8 +540,7 @@ function CompradorDashboard() {
                   {currentView === 'orders' && 'Meus Pedidos'}
                 </h1>                <p className="text-sm text-gray-600">
                   Olá, {user?.name || 'usuário'}! Bem-vindo ao marketplace.
-                </p>
-                  {/* Debug info */}
+                </p>                {/* Debug info */}
                 <div className="text-xs text-gray-500 mt-1 flex gap-4">
                   <span>Token: {authService.getToken() ? '✅' : '❌'}</span>
                   <span>Estabelecimentos: {establishments.length}</span>
@@ -523,18 +548,68 @@ function CompradorDashboard() {
                   <span>Backend: {API_BASE_URL}</span>
                 </div>
                 
-                {/* Debug button */}
-                <div className="mt-2">
+                {/* Debug buttons */}
+                <div className="mt-2 flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => {
                       console.log('🧪 Teste manual de conectividade iniciado')
+                      console.log('🔍 Estado atual:', {
+                        establishments: establishments.length,
+                        loading: isLoadingEstablishments,
+                        token: authService.getToken() ? 'Presente' : 'Ausente',
+                        apiUrl: API_BASE_URL
+                      })
                       loadEstablishments()
                     }}
                     className="text-xs"
                   >
                     🔄 Testar API
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      console.log('🔍 Estado completo do dashboard:', {
+                        establishments,
+                        selectedEstablishment,
+                        currentView,
+                        isAuthenticated,
+                        user,
+                        token: authService.getToken()
+                      })
+                    }}
+                    className="text-xs"
+                  >
+                    🔍 Debug
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      console.log('🧪 Teste direto da API...')
+                      try {
+                        const response = await fetch(`${API_BASE_URL}/sales/public/establishments`)
+                        console.log('📡 Status:', response.status)
+                        const text = await response.text()
+                        console.log('📄 Resposta:', text.substring(0, 200) + '...')
+                        
+                        try {
+                          const json = JSON.parse(text)
+                          console.log('✅ JSON válido:', json)
+                        } catch (e) {
+                          console.error('❌ JSON inválido:', e)
+                        }
+                      } catch (error) {
+                        console.error('❌ Erro na requisição:', error)
+                      }
+                    }}
+                    className="text-xs"
+                  >
+                    🧪 Teste Direto
                   </Button>
                 </div>
               </div>
