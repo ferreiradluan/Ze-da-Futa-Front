@@ -30,37 +30,14 @@ import {
 } from "lucide-react"
 import Image from "next/image"
 
-// Interfaces exatas conforme documentação da API
+// Interfaces conforme estrutura real do backend
 interface Establishment {
   id: string
   nome: string
-  descricao: string
-  endereco: {
-    logradouro: string
-    numero: string
-    bairro: string
-    cidade: string
-    cep: string
-  }
+  endereco: string // No backend é string simples, não objeto
   telefone?: string
-  email?: string
-  imagemUrl: string
-  horarioFuncionamento: {
-    segunda: string
-    terca: string
-    quarta: string
-    quinta: string
-    sexta: string
-    sabado: string
-    domingo: string
-  }
-  avaliacaoMedia: number
-  totalAvaliacoes: number
-  totalProdutos: number
-  ativo: boolean
-  estaAberto?: boolean
-  tempoEntregaEstimado: string
-  taxaEntrega: number
+  descricao: string
+  imagemUrl: string | null
 }
 
 interface Product {
@@ -98,11 +75,13 @@ interface Cart {
 
 interface Category {
   id: string
+  createdAt: string
+  updatedAt: string
   nome: string
   descricao: string
-  imagemUrl: string
-  totalProdutos: number
-  ativa: boolean
+  ativo: boolean
+  estabelecimentoId: string | null
+  domainEvents: any[]
 }
 
 // URL exata do seu backend
@@ -177,9 +156,8 @@ function CompradorDashboard() {
       if (response.ok) {
         const data = await response.json()
         console.log('✅ Dados recebidos (estabelecimentos):', data)
-        
-        // Conforme documentação, pode vir como data.estabelecimentos ou data direto
-        const establishments = data.estabelecimentos || data || []
+          // Backend retorna { value: [...], Count: number }
+        const establishments = data.value || []
         console.log('🏪 Estabelecimentos processados:', establishments.length)
         
         setEstablishments(establishments)
@@ -258,8 +236,8 @@ function CompradorDashboard() {
       if (response.ok) {
         const data = await response.json()
         console.log('✅ Categorias recebidas:', data)
-        
-        const categories = data.categorias || data || []
+          // Backend retorna { value: [...], Count: number }
+        const categories = data.value || []
         setCategories(categories)
       } else {
         console.error('❌ Erro ao carregar categorias:', response.status)
@@ -543,32 +521,23 @@ function CompradorDashboard() {
                       <CardContent className="p-4">
                         <h3 className="font-semibold text-lg mb-2">{establishment.nome}</h3>
                         <p className="text-gray-600 text-sm mb-3">{establishment.descricao}</p>
-                        
-                        <div className="space-y-2 text-sm">
+                          <div className="space-y-2 text-sm">
                           <div className="flex items-center gap-2">
                             <MapPin className="w-4 h-4 text-gray-400" />
-                            <span>{establishment.endereco.bairro}, {establishment.endereco.cidade}</span>
+                            <span>{establishment.endereco}</span>
                           </div>
+                          
+                          {establishment.telefone && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-400">📞</span>
+                              <span>{establishment.telefone}</span>
+                            </div>
+                          )}
                           
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Star className="w-4 h-4 text-yellow-400" />
-                              <span>{establishment.avaliacaoMedia}</span>
-                              <span className="text-gray-500">({establishment.totalAvaliacoes})</span>
-                            </div>
-                            
-                            <Badge variant={establishment.estaAberto ? "default" : "secondary"}>
-                              {establishment.estaAberto ? 'Aberto' : 'Fechado'}
+                            <Badge variant="default">
+                              Disponível
                             </Badge>
-                          </div>
-                          
-                          <div className="flex items-center justify-between text-xs text-gray-500">
-                            <span>🚚 {establishment.tempoEntregaEstimado}</span>
-                            <span>Taxa: {formatPrice(establishment.taxaEntrega)}</span>
-                          </div>
-                          
-                          <div className="text-xs text-gray-500">
-                            📦 {establishment.totalProdutos} produtos disponíveis
                           </div>
                         </div>
                       </CardContent>
@@ -613,23 +582,18 @@ function CompradorDashboard() {
                 <div className="flex-1">
                   <h2 className="text-2xl font-bold mb-2">{selectedEstablishment.nome}</h2>
                   <p className="text-gray-600 mb-3">{selectedEstablishment.descricao}</p>
-                  
-                  <div className="flex items-center gap-6 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Star className="w-4 h-4 text-yellow-400" />
-                      <span>{selectedEstablishment.avaliacaoMedia}</span>
-                      <span className="text-gray-500">({selectedEstablishment.totalAvaliacoes} avaliações)</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-gray-400" />
-                      <span>{selectedEstablishment.tempoEntregaEstimado}</span>
-                    </div>
-                    
+                    <div className="flex items-center gap-6 text-sm">
                     <div className="flex items-center gap-2">
                       <MapPin className="w-4 h-4 text-gray-400" />
-                      <span>Taxa: {formatPrice(selectedEstablishment.taxaEntrega)}</span>
+                      <span>{selectedEstablishment.endereco}</span>
                     </div>
+                    
+                    {selectedEstablishment.telefone && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-400">📞</span>
+                        <span>{selectedEstablishment.telefone}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
