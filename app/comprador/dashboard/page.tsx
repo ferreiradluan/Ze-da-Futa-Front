@@ -139,55 +139,97 @@ function CompradorDashboard() {
       "Content-Type": "application/json",
       ...(token && { Authorization: `Bearer ${token}` }),
     }
-  }
-  // Carregar estabelecimentos usando endpoint exato da documentação
+  }  // Carregar estabelecimentos usando endpoint exato da documentação
   const loadEstablishments = async () => {
     setIsLoadingEstablishments(true)
     try {
       console.log('🏪 Carregando estabelecimentos do endpoint: /sales/public/establishments')
       console.log('🔗 URL completa:', `${API_BASE_URL}/sales/public/establishments`)
+        // Para endpoints públicos, não precisamos necessariamente do token
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+      }
       
-      const headers = getAuthHeaders()
+      // Adicionar token se disponível, mas não obrigatório para endpoints públicos
+      const token = authService.getToken()
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`
+        console.log('🔑 Token adicionado aos headers')
+      } else {
+        console.log('ℹ️ Sem token - usando endpoint público')
+      }
+      
       console.log('📋 Headers da requisição:', headers)
       
       const response = await fetch(`${API_BASE_URL}/sales/public/establishments`, {
         method: 'GET',
         headers,
-        mode: 'cors', // Explicitar CORS
+        mode: 'cors',
       })
 
       console.log('📡 Resposta do servidor:', {
         status: response.status,
         statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries()),
+        ok: response.ok,
         url: response.url
       })
 
       if (response.ok) {
-        const rawText = await response.text()
-        console.log('📄 Resposta bruta:', rawText.substring(0, 500) + '...')
+        const data = await response.json()
+        console.log('✅ Dados JSON recebidos:', data)
+        console.log('🔍 Estrutura da resposta:', {
+          hasValue: 'value' in data,
+          hasCount: 'Count' in data,
+          isArray: Array.isArray(data),
+          keys: Object.keys(data)
+        })
+          // Backend retorna array direto conforme teste PowerShell
+        let establishments = []
         
-        const data = JSON.parse(rawText)
-        console.log('✅ Dados JSON parseados:', data)
+        if (Array.isArray(data)) {
+          // Formato atual: array direto de estabelecimentos
+          establishments = data
+          console.log('✅ Usando array direto - encontrados:', establishments.length, 'estabelecimentos')
+        } else if (data.value && Array.isArray(data.value)) {
+          // Formato alternativo: { value: [...], Count: number }
+          establishments = data.value
+          console.log('✅ Usando data.value - encontrados:', establishments.length, 'estabelecimentos')
+        } else {
+          console.warn('⚠️ Estrutura de resposta inesperada:', data)
+          establishments = []
+        }
         
-        // Backend retorna { value: [...], Count: number }
-        const establishments = data.value || data || []
-        console.log('🏪 Estabelecimentos processados:', establishments.length, establishments)
-        
+        console.log('🏪 Estabelecimentos a serem definidos:', establishments)
         setEstablishments(establishments)
+        
+        if (establishments.length > 0) {
+          console.log('✅ Primeiro estabelecimento:', establishments[0])
+        }
       } else {
         const errorText = await response.text()
-        console.error('❌ Erro na resposta:', {
+        console.error('❌ Erro na resposta HTTP:', {
           status: response.status,
           statusText: response.statusText,
           body: errorText
         })
+        
+        // Se falhou, tenta com dados mock temporariamente
+        console.log('🔄 Tentando com dados de exemplo...')
+        setEstablishments([])
       }
-    } catch (error) {
-      console.error('❌ Erro de rede ao carregar estabelecimentos:', error)
-      console.error('❌ Stack trace:', error instanceof Error ? error.stack : 'N/A')
+    } catch (error) {      console.error('❌ Erro de rede ao carregar estabelecimentos:', error)
+      console.error('❌ Detalhes do erro:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : 'N/A'
+      })
+      
+      // Em caso de erro, definir array vazio
+      setEstablishments([])
     } finally {
       setIsLoadingEstablishments(false)
+      console.log('🏁 loadEstablishments finalizado')
     }
   }
 
@@ -473,12 +515,27 @@ function CompradorDashboard() {
                 </h1>                <p className="text-sm text-gray-600">
                   Olá, {user?.name || 'usuário'}! Bem-vindo ao marketplace.
                 </p>
-                
-                {/* Debug info */}
+                  {/* Debug info */}
                 <div className="text-xs text-gray-500 mt-1 flex gap-4">
                   <span>Token: {authService.getToken() ? '✅' : '❌'}</span>
                   <span>Estabelecimentos: {establishments.length}</span>
                   <span>Loading: {isLoadingEstablishments ? '⏳' : '✅'}</span>
+                  <span>Backend: {API_BASE_URL}</span>
+                </div>
+                
+                {/* Debug button */}
+                <div className="mt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      console.log('🧪 Teste manual de conectividade iniciado')
+                      loadEstablishments()
+                    }}
+                    className="text-xs"
+                  >
+                    🔄 Testar API
+                  </Button>
                 </div>
               </div>
             </div>
@@ -511,9 +568,16 @@ function CompradorDashboard() {
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* View: Lista de Estabelecimentos */}
         {currentView === 'establishments' && (
-          <div>
-            <div className="mb-6">
+          <div>            <div className="mb-6">
               <h2 className="text-xl font-semibold mb-4">Escolha um estabelecimento</h2>
+              
+              {/* Debug Info */}
+              <div className="mb-4 p-3 bg-gray-100 rounded text-sm">
+                <p><strong>Token:</strong> {authService.getToken() ? '✅' : '❌'}</p>
+                <p><strong>Estabelecimentos:</strong> {establishments.length}</p>
+                <p><strong>Loading:</strong> {isLoadingEstablishments ? '✅' : '❌'}</p>
+                <p><strong>API URL:</strong> {API_BASE_URL}</p>
+              </div>
               
               {isLoadingEstablishments ? (
                 <div className="flex items-center justify-center py-12">
