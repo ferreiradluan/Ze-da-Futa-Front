@@ -1,12 +1,12 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Loader2, CreditCard, Shield, Clock } from "lucide-react"
 
-export default function PagamentoProcessandoPage() {
+function PagamentoProcessandoContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [timeLeft, setTimeLeft] = useState(60) // 60 segundos
@@ -157,12 +157,25 @@ export default function PagamentoProcessandoPage() {
           >
             Cancelar Pagamento
           </Button>
-        </div>
-
-        <div className="text-center text-sm text-gray-500">
+        </div>        <div className="text-center text-sm text-gray-500">
           <p>© 2024 Zé da Fruta. Transação protegida por SSL</p>
         </div>
       </div>
     </div>
+  )
+}
+
+export default function PagamentoProcessandoPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-blue-700">Carregando...</p>
+        </div>
+      </div>
+    }>
+      <PagamentoProcessandoContent />
+    </Suspense>
   )
 }

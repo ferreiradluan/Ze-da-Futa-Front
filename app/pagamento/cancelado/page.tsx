@@ -1,12 +1,13 @@
 "use client"
 
+import { Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { XCircle, ArrowLeft, RefreshCw, MessageCircle, ShoppingCart } from "lucide-react"
 
-export default function PagamentoCanceladoPage() {
+function PagamentoCanceladoContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const motivo = searchParams.get('motivo') || 'cancelado_pelo_usuario'
@@ -199,12 +200,25 @@ export default function PagamentoCanceladoPage() {
               </Button>
             </div>
           </CardContent>
-        </Card>
-
-        <div className="text-center text-sm text-gray-500">
+        </Card>        <div className="text-center text-sm text-gray-500">
           <p>© 2024 Zé da Fruta. Seus dados estão protegidos e seguros.</p>
         </div>
       </div>
     </div>
+  )
+}
+
+export default function PagamentoCanceladoPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500 mx-auto mb-4"></div>
+          <p className="text-red-700">Carregando...</p>
+        </div>
+      </div>
+    }>
+      <PagamentoCanceladoContent />
+    </Suspense>
   )
 }
