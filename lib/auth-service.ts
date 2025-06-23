@@ -1,12 +1,17 @@
+import { API_CONFIG } from './api-config'
+
 class AuthService {
   private baseURL: string;
+  private directURL: string; // URL direta para OAuth
   private tokenKey: string;
   private userKey: string;
   constructor() {
-    this.baseURL = process.env.NEXT_PUBLIC_API_URL || "https://meu-ze-da-fruta-backend-8c4976f28553.herokuapp.com";
+    // Usar configurações centralizadas
+    this.directURL = API_CONFIG.DIRECT_URL;
+    this.baseURL = API_CONFIG.FETCH_URL;
     this.tokenKey = 'zefruta_auth_token';
     this.userKey = 'zefruta_user_data';
-  }  /**
+  }/**
    * Inicia o processo de login OAuth Google
    */
   async loginWithGoogle(userType = 'comprador') {
@@ -14,8 +19,8 @@ class AuthService {
       // Definir a URL de callback do frontend baseado no ambiente atual
       const callbackUrl = `${window.location.origin}/auth/google/callback`;
       
-      // Endpoint correto do backend para OAuth Google
-      const authUrl = `${this.baseURL}/auth/user/google?callback_url=${encodeURIComponent(callbackUrl)}&user_type=${userType}`;
+      // Usar URL direta para OAuth (não proxy)
+      const authUrl = `${this.directURL}/auth/user/google?callback_url=${encodeURIComponent(callbackUrl)}&user_type=${userType}`;
 
       // Salvar o tipo de usuário antes do redirect
       if (typeof window !== 'undefined') {

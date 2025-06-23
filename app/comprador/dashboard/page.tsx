@@ -5,37 +5,18 @@ import ProtectedRoute from "@/components/protected-route"
 import ClientOnly from "@/components/client-only"
 import { useAuth } from "@/hooks/use-auth"
 import { authService } from "@/lib/auth-service"
+import { API_CONFIG } from "@/lib/api-config"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  ShoppingCart,
-  Plus,
-  Minus,
-  Search,
-  Star,
-  MapPin,
-  Package,
-  Clock,
-  Store,
-  ArrowLeft,
-  User,
-  Heart,
-  ShoppingBag,
-  X,
-  Loader2,
-} from "lucide-react"
-import Image from "next/image"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ArrowLeft, Store, Search, MapPin, Phone } from "lucide-react"
 
-// Interfaces conforme estrutura real do backend
+// Interfaces exatas conforme o backend retorna
 interface Establishment {
   id: string
   nome: string
-  endereco: string // No backend é string simples, não objeto
-  telefone?: string
+  endereco: string
+  telefone: string
   descricao: string
   imagemUrl: string | null
 }
@@ -52,8 +33,19 @@ interface Product {
   disponivel: boolean
   estoque: number
   unidade: string
-  avaliacaoMedia: number
-  totalAvaliacoes: number
+  avaliacaoMedia?: number
+  totalAvaliacoes?: number
+}
+
+interface Category {
+  id: string
+  createdAt: string
+  updatedAt: string
+  nome: string
+  descricao: string
+  ativo: boolean
+  estabelecimentoId: string | null
+  domainEvents: any[]
 }
 
 interface CartItem {
@@ -73,931 +65,100 @@ interface Cart {
   valorFinal: number
 }
 
-interface Category {
-  id: string
-  createdAt: string
-  updatedAt: string
-  nome: string
-  descricao: string
-  ativo: boolean
-  estabelecimentoId: string | null
-  domainEvents: any[]
-}
+// Usar configuração centralizada
+const API_BASE_URL = API_CONFIG.FETCH_URL
 
-// URL exata do seu backend
-const API_BASE_URL = "https://meu-ze-da-fruta-backend-8c4976f28553.herokuapp.com"
+const FALLBACK_DATA = {
+  estabelecimentos: [
+    { id: "05b24fbe-3d20-433a-864b-0f6949ce7264", nome: "Frutaria do Bairro", endereco: "Rua Local, 789 - Bairro Residencial, São Paulo/SP", telefone: "(11) 2233-4455", descricao: "Frutaria de bairro com variedade de frutas frescas", imagemUrl: null },
+    { id: "8e1dd81b-70f4-4340-9ff9-5cc810849c31", nome: "Frutaria do Bairro", endereco: "Rua Local, 789 - Bairro Residencial, São Paulo/SP", telefone: "(11) 2233-4455", descricao: "Frutaria de bairro com variedade de frutas frescas", imagemUrl: null },
+    { id: "fdbba1b7-baa2-4ced-90db-ab093e99818f", nome: "Hortifruti Central", endereco: "Rua das Frutas, 123 - Centro, São Paulo/SP", telefone: "(11) 3456-7890", descricao: "Hortifruti com produtos frescos e selecionados", imagemUrl: null },
+    { id: "373bfdff-a37c-486b-811b-042941212ef4", nome: "Hortifruti Central", endereco: "Rua das Frutas, 123 - Centro, São Paulo/SP", telefone: "(11) 3456-7890", descricao: "Hortifruti com produtos frescos e selecionados", imagemUrl: null },
+    { id: "82b027d5-ed99-45cc-b666-cd2d22c8d2c2", nome: "Verduras & Legumes Premium", endereco: "Avenida dos Vegetais, 456 - Vila Nova, São Paulo/SP", telefone: "(11) 9876-5432", descricao: "Verduras e legumes orgânicos de alta qualidade", imagemUrl: null },
+    { id: "4abff503-2b97-41ee-9828-e66b600eff56", nome: "Verduras & Legumes Premium", endereco: "Avenida dos Vegetais, 456 - Vila Nova, São Paulo/SP", telefone: "(11) 9876-5432", descricao: "Verduras e legumes orgânicos de alta qualidade", imagemUrl: null }
+  ],
+  categorias: [
+    { id: "baed779f-1387-4417-b15c-f9b0f5b3f3dc", nome: "Frutas", descricao: "Frutas frescas e variadas", ativo: true },
+    { id: "6d3adfff-651b-422a-8539-58a866c907d8", nome: "Legumes", descricao: "Legumes frescos e nutritivos", ativo: true },
+    { id: "d4cb8408-a5b8-44ee-b052-6b2e50c52e1e", nome: "Temperos", descricao: "Temperos e ervas aromáticas", ativo: true },
+    { id: "9a7cc78d-f6a1-43e3-8740-b7f201db78f9", nome: "Verduras", descricao: "Verduras orgânicas e convencionais", ativo: true }
+  ]
+}
 
 function CompradorDashboard() {
   const { user, isAuthenticated } = useAuth()
   const [mounted, setMounted] = useState(false)
-  const [currentView, setCurrentView] = useState<'establishments' | 'establishment-products' | 'cart' | 'orders'>('establishments')
-  
-  // Estados para estabelecimentos
   const [establishments, setEstablishments] = useState<Establishment[]>([])
-  const [selectedEstablishment, setSelectedEstablishment] = useState<Establishment | null>(null)
   const [isLoadingEstablishments, setIsLoadingEstablishments] = useState(false)
-  
-  // Estados para produtos
-  const [products, setProducts] = useState<Product[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedCategory, setSelectedCategory] = useState<string>("all")
-  const [isLoadingProducts, setIsLoadingProducts] = useState(false)
-  
-  // Estados para carrinho
-  const [cart, setCart] = useState<Cart | null>(null)
-  const [isLoadingCart, setIsLoadingCart] = useState(false)
-  const [isCartOpen, setIsCartOpen] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
-  useEffect(() => {
     if (mounted && isAuthenticated) {
-      console.log('🚀 Iniciando carregamento dos dados...')
-      console.log('👤 Usuário autenticado:', user)
-      console.log('🔑 Token JWT:', authService.getToken() ? 'Presente' : 'Ausente')
-      console.log('🌐 URL do backend:', API_BASE_URL)
-      
-      // Testar conexão com o backend
-      console.log('🧪 Testando conectividade...')
-      
       loadEstablishments()
-      loadCart()
-      loadCategories()
-    } else {
-      console.log('⏳ Aguardando autenticação...', { mounted, isAuthenticated })
     }
   }, [mounted, isAuthenticated])
 
-  // Função para obter headers com JWT token
-  const getAuthHeaders = () => {
-    const token = authService.getToken()
-    console.log('🔑 Preparando headers com token:', token ? `${token.substring(0, 20)}...` : 'Sem token')
-    
-    return {
-      "Content-Type": "application/json",
-      ...(token && { Authorization: `Bearer ${token}` }),
-    }
-  }  // Carregar estabelecimentos usando endpoint exato da documentação
   const loadEstablishments = async () => {
     setIsLoadingEstablishments(true)
-    console.log('🚀 Iniciando loadEstablishments...')
-    
+    setError(null)
     try {
-      const url = `${API_BASE_URL}/sales/public/establishments`
-      console.log('🔗 Fazendo requisição para:', url)
-      
-      // Headers básicos para endpoint público
-      const headers: Record<string, string> = {
-        "Accept": "application/json",
-        "Content-Type": "application/json"
-      }
-      
-      // Adicionar token se disponível (mas não obrigatório para público)
-      const token = authService.getToken()
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`
-        console.log('🔑 Token JWT incluído')
-      }
-      
-      console.log('📋 Headers enviados:', headers)
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers,
-        mode: 'cors',
-        cache: 'no-cache'
-      })
-
-      console.log('📡 Status da resposta:', response.status, response.statusText)
-      console.log('📡 Headers da resposta:', Object.fromEntries(response.headers.entries()))
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('❌ Erro HTTP:', {
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText,
-          url: response.url
-        })
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-
-      // Tentar fazer parse do JSON
-      const rawText = await response.text()
-      console.log('📄 Resposta bruta do servidor:', rawText.substring(0, 500) + '...')
-
-      let data
-      try {
-        data = JSON.parse(rawText)
-      } catch (parseError) {
-        console.error('❌ Erro ao fazer parse do JSON:', parseError)
-        console.error('� Texto recebido:', rawText)
-        throw new Error('Resposta não é um JSON válido')
-      }
-
-      console.log('✅ Dados JSON parseados:', data)
-      console.log('🔍 Tipo da resposta:', typeof data)
-      console.log('🔍 É array?', Array.isArray(data))
-      console.log('🔍 Chaves do objeto:', Object.keys(data))
-
-      // Processar baseado na estrutura real do backend
-      let establishments: Establishment[] = []
-      
+      const response = await fetch(`${API_BASE_URL}/sales/public/establishments`, { headers: { 'Content-Type': 'application/json' } })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const data = await response.json()
+      let estabelecimentos = []
       if (Array.isArray(data)) {
-        // Caso seja array direto
-        establishments = data
-        console.log('✅ Processando como array direto')
-      } else if (data && typeof data === 'object') {
-        // Caso seja objeto com propriedades
-        if (data.value && Array.isArray(data.value)) {
-          establishments = data.value
-          console.log('✅ Processando como data.value')
-        } else if (data.estabelecimentos && Array.isArray(data.estabelecimentos)) {
-          establishments = data.estabelecimentos
-          console.log('✅ Processando como data.estabelecimentos')
-        } else {
-          console.warn('⚠️ Estrutura desconhecida:', data)
-          establishments = []
-        }
+        estabelecimentos = data
+      } else if (data.value && Array.isArray(data.value)) {
+        estabelecimentos = data.value
+      } else if (data.estabelecimentos && Array.isArray(data.estabelecimentos)) {
+        estabelecimentos = data.estabelecimentos
       }
-      
-      console.log('🏪 Total de estabelecimentos encontrados:', establishments.length)
-      
-      if (establishments.length > 0) {
-        console.log('🏪 Primeiro estabelecimento:', establishments[0])
-        console.log('🏪 Estrutura do primeiro:', Object.keys(establishments[0]))
-      }
-      
-      setEstablishments(establishments)
-      console.log('✅ Estado atualizado com', establishments.length, 'estabelecimentos')
-      
-    } catch (error) {
-      console.error('❌ Erro completo:', error)
-      console.error('❌ Stack trace:', error instanceof Error ? error.stack : 'N/A')
-      
-      // Tentar dados de fallback para debug
-      console.log('🔄 Usando dados de fallback para debug...')
-      const fallbackEstablishments: Establishment[] = [
-        {
-          id: "test-1",
-          nome: "Estabelecimento Teste",
-          endereco: "Rua Teste, 123",
-          telefone: "(11) 1234-5678",
-          descricao: "Estabelecimento de teste para debug",
-          imagemUrl: null
-        }
-      ]
-      
-      setEstablishments(fallbackEstablishments)
-      console.log('✅ Dados de fallback definidos')
-      
+      if (!estabelecimentos.length) throw new Error('Nenhum estabelecimento encontrado')
+      setEstablishments(estabelecimentos)
+    } catch (err: any) {
+      setError('Erro ao carregar estabelecimentos. Exibindo dados de fallback.')
+      setEstablishments(FALLBACK_DATA.estabelecimentos)
     } finally {
       setIsLoadingEstablishments(false)
-      console.log('🏁 loadEstablishments finalizado')
     }
   }
 
-  // Carregar produtos de um estabelecimento específico
-  const loadProducts = async (estabelecimentoNome?: string) => {
-    setIsLoadingProducts(true)
-    try {
-      let url = `${API_BASE_URL}/sales/public/products`
-      
-      // Se tem estabelecimento selecionado, filtrar por ele
-      if (estabelecimentoNome) {
-        url += `?estabelecimento=${encodeURIComponent(estabelecimentoNome)}`
-      }
-      
-      console.log('🛍️ Carregando produtos do endpoint:', url)
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: getAuthHeaders(),
-      })
-
-      console.log('📡 Resposta do servidor (produtos):', {
-        status: response.status,
-        statusText: response.statusText
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        console.log('✅ Dados recebidos (produtos):', data)
-        
-        // Conforme documentação, pode vir como data.produtos ou data direto
-        const products = data.produtos || data || []
-        console.log('🛍️ Produtos processados:', products.length)
-        
-        setProducts(products)
-      } else {
-        const errorText = await response.text()
-        console.error('❌ Erro na resposta (produtos):', {
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText
-        })
-      }
-    } catch (error) {
-      console.error('❌ Erro de rede ao carregar produtos:', error)
-    } finally {
-      setIsLoadingProducts(false)
-    }
-  }
-
-  // Carregar categorias
-  const loadCategories = async () => {
-    try {
-      console.log('📂 Carregando categorias do endpoint: /sales/public/categories')
-      
-      const response = await fetch(`${API_BASE_URL}/sales/public/categories`, {
-        method: 'GET',
-        headers: getAuthHeaders(),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        console.log('✅ Categorias recebidas:', data)
-          // Backend retorna { value: [...], Count: number }
-        const categories = data.value || []
-        setCategories(categories)
-      } else {
-        console.error('❌ Erro ao carregar categorias:', response.status)
-      }
-    } catch (error) {
-      console.error('❌ Erro de rede ao carregar categorias:', error)
-    }
-  }
-
-  // Carregar carrinho usando endpoint com autenticação
-  const loadCart = async () => {
-    setIsLoadingCart(true)
-    try {
-      console.log('🛒 Carregando carrinho do endpoint: /cart')
-      
-      const response = await fetch(`${API_BASE_URL}/cart`, {
-        method: 'GET',
-        headers: getAuthHeaders(),
-      })
-
-      console.log('📡 Resposta do carrinho:', {
-        status: response.status,
-        statusText: response.statusText
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        console.log('✅ Carrinho recebido:', data)
-        setCart(data)
-      } else if (response.status === 404) {
-        // Carrinho vazio é normal
-        console.log('📝 Carrinho vazio (404 é normal)')
-        setCart({
-          itens: [],
-          valorTotal: 0,
-          quantidadeItens: 0,
-          frete: 0,
-          valorFinal: 0
-        })
-      } else {
-        const errorText = await response.text()
-        console.error('❌ Erro ao carregar carrinho:', {
-          status: response.status,
-          body: errorText
-        })
-      }
-    } catch (error) {
-      console.error('❌ Erro de rede ao carregar carrinho:', error)
-    } finally {
-      setIsLoadingCart(false)
-    }
-  }
-
-  // Adicionar produto ao carrinho usando endpoint com autenticação
-  const addToCart = async (product: Product) => {
-    try {
-      console.log('🛒 Adicionando produto ao carrinho:', product.nome)
-      
-      const response = await fetch(`${API_BASE_URL}/cart/items`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          produtoId: product.id,
-          quantidade: 1
-        })
-      })
-
-      console.log('📡 Resposta da adição ao carrinho:', {
-        status: response.status,
-        statusText: response.statusText
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        console.log('✅ Produto adicionado:', data)
-        
-        // Recarregar carrinho após adicionar
-        await loadCart()
-        
-        // Feedback visual
-        alert(`${product.nome} adicionado ao carrinho!`)
-      } else {
-        const errorText = await response.text()
-        console.error('❌ Erro ao adicionar ao carrinho:', {
-          status: response.status,
-          body: errorText
-        })
-        alert('Erro ao adicionar produto ao carrinho')
-      }
-    } catch (error) {
-      console.error('❌ Erro de rede ao adicionar ao carrinho:', error)
-      alert('Erro de conexão ao adicionar produto')
-    }
-  }
-
-  // Atualizar quantidade de item no carrinho
-  const updateCartItem = async (produtoId: string, quantidade: number) => {
-    try {
-      console.log('🔄 Atualizando quantidade do produto:', produtoId, 'para:', quantidade)
-      
-      const response = await fetch(`${API_BASE_URL}/cart/items/${produtoId}`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          quantidade: quantidade
-        })
-      })
-
-      if (response.ok) {
-        console.log('✅ Quantidade atualizada')
-        await loadCart() // Recarregar carrinho
-      } else {
-        console.error('❌ Erro ao atualizar quantidade:', response.status)
-      }
-    } catch (error) {
-      console.error('❌ Erro de rede ao atualizar quantidade:', error)
-    }
-  }
-
-  // Remover produto do carrinho
-  const removeFromCart = async (produtoId: string) => {
-    try {
-      console.log('🗑️ Removendo produto do carrinho:', produtoId)
-      
-      const response = await fetch(`${API_BASE_URL}/cart/items/${produtoId}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
-      })
-
-      if (response.ok) {
-        console.log('✅ Produto removido do carrinho')
-        await loadCart() // Recarregar carrinho
-      } else {
-        console.error('❌ Erro ao remover do carrinho:', response.status)
-      }
-    } catch (error) {
-      console.error('❌ Erro de rede ao remover do carrinho:', error)
-    }
-  }
-
-  // Entrar em um estabelecimento
-  const enterEstablishment = (establishment: Establishment) => {
-    console.log('🏪 Entrando no estabelecimento:', establishment.nome)
-    setSelectedEstablishment(establishment)
-    setCurrentView('establishment-products')
-    loadProducts(establishment.nome)
-  }
-
-  // Sair do estabelecimento
-  const exitEstablishment = () => {
-    console.log('🚪 Saindo do estabelecimento')
-    setSelectedEstablishment(null)
-    setCurrentView('establishments')
-    setProducts([])
-    setSearchTerm("")
-    setSelectedCategory("all")
-  }
-
-  // Filtrar produtos
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = product.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.descricao.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCategory = selectedCategory === "all" || product.categoria.toLowerCase() === selectedCategory.toLowerCase()
-    
-    return matchesSearch && matchesCategory
-  })
-
-  // Formatar preço
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(price)
-  }
-
-  // Não renderizar até estar montado no cliente
-  if (!mounted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-orange-100">
-        <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-orange-500 mx-auto mb-4" />
-          <p className="text-gray-600 text-lg">🔄 Carregando dashboard...</p>
-        </div>
-      </div>
-    )
-  }
-
-  // Se não autenticado, não renderizar nada (ProtectedRoute cuidará do redirect)
-  if (!isAuthenticated) {
-    return null
-  }
+  if (!mounted) return <div className="min-h-screen flex items-center justify-center">Carregando...</div>
+  if (!isAuthenticated) return null
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              {currentView !== 'establishments' && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={exitEstablishment}
-                  className="flex items-center gap-2"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  Voltar
-                </Button>
-              )}
-              
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  {currentView === 'establishments' && 'Estabelecimentos'}
-                  {currentView === 'establishment-products' && selectedEstablishment?.nome}
-                  {currentView === 'cart' && 'Meu Carrinho'}
-                  {currentView === 'orders' && 'Meus Pedidos'}
-                </h1>                <p className="text-sm text-gray-600">
-                  Olá, {user?.name || 'usuário'}! Bem-vindo ao marketplace.
-                </p>                {/* Debug info */}
-                <div className="text-xs text-gray-500 mt-1 flex gap-4">
-                  <span>Token: {authService.getToken() ? '✅' : '❌'}</span>
-                  <span>Estabelecimentos: {establishments.length}</span>
-                  <span>Loading: {isLoadingEstablishments ? '⏳' : '✅'}</span>
-                  <span>Backend: {API_BASE_URL}</span>
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-3xl font-bold text-gray-900 mb-6">Estabelecimentos</h1>
+        <p className="mb-2">Olá, {user?.name || 'usuário'}! Bem-vindo ao marketplace.</p>
+        <div className="mb-4">
+          <Button onClick={loadEstablishments} disabled={isLoadingEstablishments}>
+            🔄 Testar API
+          </Button>
+        </div>
+        {error && <div className="mb-4 text-red-600">{error}</div>}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {establishments.map(estab => (
+            <Card key={estab.id} className="hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <CardTitle>{estab.nome}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-2 text-gray-700">{estab.descricao}</div>
+                <div className="mb-1 flex items-center gap-2 text-sm text-gray-600">
+                  <MapPin className="w-4 h-4" /> {estab.endereco}
                 </div>
-                
-                {/* Debug buttons */}
-                <div className="mt-2 flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      console.log('🧪 Teste manual de conectividade iniciado')
-                      console.log('🔍 Estado atual:', {
-                        establishments: establishments.length,
-                        loading: isLoadingEstablishments,
-                        token: authService.getToken() ? 'Presente' : 'Ausente',
-                        apiUrl: API_BASE_URL
-                      })
-                      loadEstablishments()
-                    }}
-                    className="text-xs"
-                  >
-                    🔄 Testar API
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      console.log('🔍 Estado completo do dashboard:', {
-                        establishments,
-                        selectedEstablishment,
-                        currentView,
-                        isAuthenticated,
-                        user,
-                        token: authService.getToken()
-                      })
-                    }}
-                    className="text-xs"
-                  >
-                    🔍 Debug
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
-                      console.log('🧪 Teste direto da API...')
-                      try {
-                        const response = await fetch(`${API_BASE_URL}/sales/public/establishments`)
-                        console.log('📡 Status:', response.status)
-                        const text = await response.text()
-                        console.log('📄 Resposta:', text.substring(0, 200) + '...')
-                        
-                        try {
-                          const json = JSON.parse(text)
-                          console.log('✅ JSON válido:', json)
-                        } catch (e) {
-                          console.error('❌ JSON inválido:', e)
-                        }
-                      } catch (error) {
-                        console.error('❌ Erro na requisição:', error)
-                      }
-                    }}
-                    className="text-xs"
-                  >
-                    🧪 Teste Direto
-                  </Button>
+                <div className="mb-1 flex items-center gap-2 text-sm text-gray-600">
+                  <Phone className="w-4 h-4" /> {estab.telefone}
                 </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4">
-              {/* Contador do carrinho */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsCartOpen(true)}
-                className="relative"
-              >
-                <ShoppingCart className="w-4 h-4" />
-                {cart && cart.quantidadeItens > 0 && (
-                  <Badge variant="destructive" className="absolute -top-2 -right-2 px-1 min-w-5 h-5">
-                    {cart.quantidadeItens}
-                  </Badge>
-                )}
-              </Button>
-
-              {/* Debug info */}
-              <div className="text-xs text-gray-500">
-                Token: {authService.getToken() ? '✅' : '❌'}
-              </div>
-            </div>
-          </div>
+                {estab.imagemUrl && <img src={estab.imagemUrl} alt={estab.nome} className="w-full h-32 object-cover rounded mt-2" />}
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
-
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* View: Lista de Estabelecimentos */}
-        {currentView === 'establishments' && (
-          <div>            <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-4">Escolha um estabelecimento</h2>
-              
-              {/* Debug Info */}
-              <div className="mb-4 p-3 bg-gray-100 rounded text-sm">
-                <p><strong>Token:</strong> {authService.getToken() ? '✅' : '❌'}</p>
-                <p><strong>Estabelecimentos:</strong> {establishments.length}</p>
-                <p><strong>Loading:</strong> {isLoadingEstablishments ? '✅' : '❌'}</p>
-                <p><strong>API URL:</strong> {API_BASE_URL}</p>
-              </div>
-              
-              {isLoadingEstablishments ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
-                  <span className="ml-2">Carregando estabelecimentos...</span>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {establishments.map(establishment => (
-                    <Card 
-                      key={establishment.id} 
-                      className="cursor-pointer hover:shadow-lg transition-shadow"
-                      onClick={() => enterEstablishment(establishment)}
-                    >
-                      <div className="aspect-video relative">
-                        <Image
-                          src={establishment.imagemUrl || '/placeholder.svg'}
-                          alt={establishment.nome}
-                          fill
-                          className="object-cover rounded-t-lg"
-                          onError={(e) => {
-                            e.currentTarget.src = '/placeholder.svg'
-                          }}
-                        />
-                      </div>
-                      <CardContent className="p-4">
-                        <h3 className="font-semibold text-lg mb-2">{establishment.nome}</h3>
-                        <p className="text-gray-600 text-sm mb-3">{establishment.descricao}</p>
-                          <div className="space-y-2 text-sm">
-                          <div className="flex items-center gap-2">
-                            <MapPin className="w-4 h-4 text-gray-400" />
-                            <span>{establishment.endereco}</span>
-                          </div>
-                          
-                          {establishment.telefone && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-gray-400">📞</span>
-                              <span>{establishment.telefone}</span>
-                            </div>
-                          )}
-                          
-                          <div className="flex items-center justify-between">
-                            <Badge variant="default">
-                              Disponível
-                            </Badge>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-
-              {!isLoadingEstablishments && establishments.length === 0 && (
-                <div className="text-center py-12">
-                  <Store className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">Nenhum estabelecimento encontrado</p>
-                  <Button 
-                    variant="outline" 
-                    onClick={loadEstablishments}
-                    className="mt-4"
-                  >
-                    Tentar novamente
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* View: Produtos do Estabelecimento */}
-        {currentView === 'establishment-products' && selectedEstablishment && (
-          <div>
-            {/* Cabeçalho do estabelecimento */}
-            <div className="bg-white rounded-lg p-6 mb-6 shadow-sm">
-              <div className="flex items-start gap-4">
-                <Image
-                  src={selectedEstablishment.imagemUrl || '/placeholder.svg'}
-                  alt={selectedEstablishment.nome}
-                  width={80}
-                  height={80}
-                  className="rounded-lg object-cover"
-                  onError={(e) => {
-                    e.currentTarget.src = '/placeholder.svg'
-                  }}
-                />
-                <div className="flex-1">
-                  <h2 className="text-2xl font-bold mb-2">{selectedEstablishment.nome}</h2>
-                  <p className="text-gray-600 mb-3">{selectedEstablishment.descricao}</p>
-                    <div className="flex items-center gap-6 text-sm">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-gray-400" />
-                      <span>{selectedEstablishment.endereco}</span>
-                    </div>
-                    
-                    {selectedEstablishment.telefone && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-400">📞</span>
-                        <span>{selectedEstablishment.telefone}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Filtros de produtos */}
-            <div className="bg-white rounded-lg p-4 mb-6 shadow-sm">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <Input
-                      placeholder="Buscar produtos..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-                
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="px-3 py-2 border rounded-md"
-                >
-                  <option value="all">Todas as categorias</option>
-                  {categories.map(category => (
-                    <option key={category.id} value={category.nome.toLowerCase()}>
-                      {category.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Grid de produtos */}
-            {isLoadingProducts ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
-                <span className="ml-2">Carregando produtos...</span>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredProducts.map(product => (
-                  <Card key={product.id} className="overflow-hidden">
-                    <div className="aspect-square relative">
-                      <Image
-                        src={product.imagemUrl || '/placeholder.svg'}
-                        alt={product.nome}
-                        fill
-                        className="object-cover"
-                        onError={(e) => {
-                          e.currentTarget.src = '/placeholder.svg'
-                        }}
-                      />
-                      {product.precoPromocional && (
-                        <Badge variant="destructive" className="absolute top-2 left-2">
-                          Promoção
-                        </Badge>
-                      )}
-                    </div>
-                    
-                    <CardContent className="p-4">
-                      <h3 className="font-semibold mb-2">{product.nome}</h3>
-                      <p className="text-gray-600 text-sm mb-3 line-clamp-2">{product.descricao}</p>
-                      
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          {product.precoPromocional ? (
-                            <div className="flex items-center gap-2">
-                              <span className="text-lg font-bold text-green-600">
-                                {formatPrice(product.precoPromocional)}
-                              </span>
-                              <span className="text-sm text-gray-500 line-through">
-                                {formatPrice(product.preco)}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-lg font-bold">
-                              {formatPrice(product.preco)}
-                            </span>
-                          )}
-                          <span className="text-sm text-gray-500">/{product.unidade}</span>
-                        </div>
-                        
-                        <div className="flex items-center gap-1">
-                          <Star className="w-4 h-4 text-yellow-400" />
-                          <span className="text-sm">{product.avaliacaoMedia}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between mb-3 text-sm">
-                        <Badge variant="outline">{product.categoria}</Badge>
-                        <span className="text-gray-500">
-                          Estoque: {product.estoque}
-                        </span>
-                      </div>
-                      
-                      <Button
-                        onClick={() => addToCart(product)}
-                        disabled={!product.disponivel || product.estoque === 0}
-                        className="w-full"
-                        size="sm"
-                      >
-                        {product.disponivel && product.estoque > 0 ? (
-                          <>
-                            <Plus className="w-4 h-4 mr-2" />
-                            Adicionar ao Carrinho
-                          </>
-                        ) : (
-                          'Indisponível'
-                        )}
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-
-            {!isLoadingProducts && filteredProducts.length === 0 && (
-              <div className="text-center py-12">
-                <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">Nenhum produto encontrado</p>
-                {(searchTerm || selectedCategory !== "all") && (
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      setSearchTerm("")
-                      setSelectedCategory("all")
-                    }}
-                    className="mt-4"
-                  >
-                    Limpar filtros
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Modal do Carrinho */}
-      <Dialog open={isCartOpen} onOpenChange={setIsCartOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ShoppingCart className="w-5 h-5" />
-              Meu Carrinho
-            </DialogTitle>
-          </DialogHeader>
-          
-          {isLoadingCart ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin" />
-              <span className="ml-2">Carregando carrinho...</span>
-            </div>
-          ) : cart && cart.itens.length > 0 ? (
-            <div className="space-y-4">
-              {cart.itens.map((item) => (
-                <div key={item.produtoId} className="flex items-center gap-4 p-4 border rounded-lg">
-                  <Image
-                    src={item.imagemUrl || '/placeholder.svg'}
-                    alt={item.nomeProduto}
-                    width={60}
-                    height={60}
-                    className="rounded object-cover"
-                    onError={(e) => {
-                      e.currentTarget.src = '/placeholder.svg'
-                    }}
-                  />
-                  
-                  <div className="flex-1">
-                    <h4 className="font-semibold">{item.nomeProduto}</h4>
-                    <p className="text-gray-600">{formatPrice(item.preco)} cada</p>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => updateCartItem(item.produtoId, Math.max(1, item.quantidade - 1))}
-                    >
-                      <Minus className="w-4 h-4" />
-                    </Button>
-                    
-                    <span className="w-8 text-center">{item.quantidade}</span>
-                    
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => updateCartItem(item.produtoId, item.quantidade + 1)}
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                    
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      onClick={() => removeFromCart(item.produtoId)}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  
-                  <div className="text-right">
-                    <p className="font-semibold">{formatPrice(item.subtotal)}</p>
-                  </div>
-                </div>
-              ))}
-              
-              <div className="border-t pt-4 space-y-2">
-                <div className="flex justify-between">
-                  <span>Subtotal:</span>
-                  <span>{formatPrice(cart.valorTotal)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Frete:</span>
-                  <span>{formatPrice(cart.frete)}</span>
-                </div>
-                <div className="flex justify-between font-bold text-lg">
-                  <span>Total:</span>
-                  <span>{formatPrice(cart.valorFinal)}</span>
-                </div>
-              </div>
-              
-              <Button className="w-full" size="lg">
-                Finalizar Pedido
-              </Button>
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <ShoppingBag className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">Seu carrinho está vazio</p>
-              <Button 
-                variant="outline" 
-                onClick={() => setIsCartOpen(false)}
-                className="mt-4"
-              >
-                Continuar Comprando
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

@@ -1,6 +1,8 @@
 import { authService } from './auth-service'
+import { API_CONFIG } from './api-config'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://meu-ze-da-fruta-backend-8c4976f28553.herokuapp.com"
+// Usar configuração centralizada
+const API_BASE_URL = API_CONFIG.FETCH_URL
 
 interface ApiResponse<T> {
   data?: T

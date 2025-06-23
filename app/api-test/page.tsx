@@ -3,7 +3,10 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 
-const API_BASE_URL = "https://meu-ze-da-fruta-backend-8c4976f28553.herokuapp.com"
+import { API_CONFIG } from "@/lib/api-config"
+
+// Usar configuração centralizada
+const API_BASE_URL = API_CONFIG.FETCH_URL
 
 export default function ApiTestPage() {
   const [result, setResult] = useState<string>("")
